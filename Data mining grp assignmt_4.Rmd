@@ -1,0 +1,951 @@
+---
+title: "HR Employee Attrition Group Assignment"
+output:
+  html_document:
+    df_print: paged
+---
+## Group Members (Group 1) : 
+### Saurav Suman, Anurag Kedia, Divya Thomas, Neha Tiwary, Pihu Sinha
+
+## Question :
+
+Build Neural Network and CART model on HR Employee Attrition Data file:
+
+* Steps involved should be:
+
+* Data Import (Target variable is "Attrition" column)
+
+* Split the data in Dev & Hold Out sample (70:30)
+
+* Perform Exploratory Data Analysis
+
+* Identify columns which are of no use. drop those columns
+
+* Write Hypothesis and validate the Hypothesis
+
+* Build Neural Network Model (Development sample)
+
+* Validate NN model on Hold Out. If need be improvise
+
+* Build CART Model
+
+* Validate CART Model
+
+* Compare NN with CART
+
+## Solution :
+
+### DATA PREPARATION:
+
+### Read the dataset
+```{r}
+HR= read.csv(file.choose())
+```
+
+### View few top observations of the dataset
+```{r}
+head(HR)
+```
+
+### Structure of the dataset
+```{r}
+str(HR)
+```
+
+### View names of all the columns in the dataset
+```{r}
+names(HR)
+```
+
+### Convert some of the required independent numerical variables to categorical variables
+```{r}
+HR$Education=as.factor(HR$Education)
+HR$EnvironmentSatisfaction=as.factor(HR$EnvironmentSatisfaction)
+HR$JobInvolvement=as.factor(HR$JobInvolvement)
+HR$JobSatisfaction=as.factor(HR$JobSatisfaction)
+HR$PerformanceRating=as.factor(HR$PerformanceRating)
+HR$RelationshipSatisfaction=as.factor(HR$RelationshipSatisfaction)
+HR$WorkLifeBalance=as.factor(HR$WorkLifeBalance)
+HR$JobLevel=as.factor(HR$JobLevel)
+HR$StockOptionLevel=as.factor(HR$StockOptionLevel)
+```
+
+There are multiple numeric variables that are actually categorical variables. We have converted these to factors.
+
+### Structure of the dataset
+```{r}
+str(HR)
+```
+
+### Check for missing values in the dataset
+```{r}
+sapply(HR,function(x){sum(is.na(x))})
+```
+
+No missing values available in the dataset.
+
+### Identify and Remove unwanted columns from the dataset(Drop the the columns with no variability)
+```{r}
+HR$EmployeeCount <- NULL
+HR$EmployeeNumber <- NULL
+HR$StandardHours <- NULL
+HR$Over18 <- NULL
+
+```
+
+1. Dropping EmployeeCount as there is no variability, all are 1.
+2. Dropping Employee Number as it is just an identifier.
+3. Dropping Standard Hours as there is no variability, all are 80.
+4. Dropping Over18 as there is no variability, all are Y.
+
+### Summary of the dataset
+```{r}
+summary(HR)
+```
+
+### Table to see the number of attrition
+```{r}
+attach(HR)
+table(Attrition)
+```
+
+Out of 2940 observations, 474 employees atrrited.
+
+### Proportion of attrition
+```{r}
+prop.table(table(Attrition))
+```
+
+16% is attrited
+
+## Exploratory Data Analysis:
+```{r}
+library(ggplot2)
+ggplot(data=HR, aes(Attrition, fill=Attrition))+geom_bar()
+```
+
+16 % attrited. Out of 2940 employees, 474 employees attrited and 2466 employees didn't attrite.
+
+As per the data given: Age, Overtime, MonthlyIncome, TotalWorkingYears, HourlyRate and JobRole  looks the most important factors which is influencing the attrition rates. Let's explore these variables:
+
+### Age
+```{r}
+summary(HR$Age)
+```
+```{r}
+Age_new=cut(HR$Age, 10, include.lowest = TRUE)
+ggplot(HR, aes(Age_new, fill=(Attrition))) + geom_bar()
+```
+
+Majorly attrition is happening between the age group of 18-22. After 34 years of age, we can see a decrease in the trend of atrrition.
+
+### Hourly Rate
+```{r}
+summary(HR$HourlyRate)
+```
+```{r}
+HourlyRate_new=cut(HR$HourlyRate, 5, include.lowest = TRUE)
+ggplot(HR, aes(HourlyRate_new,fill =(Attrition))) + geom_bar()
+```
+
+There is no significant change visible in attrition rate due to the working hours.
+
+### Job Role
+```{r}
+table(HR$JobRole)
+```
+
+```{r}
+table(HR$JobRole, HR$Attrition)
+```
+
+
+```{r}
+ggplot(HR, aes(JobRole,fill =(Attrition))) + geom_bar()
+```
+
+From this plot we can interpret that highest attrition is being encountered by the roles of laboratory technitions(124) and Sales Executives(114), however, in terms of percentage the Sales Representatives are facing high attrition which is 66%.
+
+### Monthly Income
+```{r}
+summary(HR$MonthlyIncome)
+```
+
+
+```{r}
+MonthlyIncome_new= cut(HR$MonthlyIncome, 10, include.lowest = TRUE, labels=c(1,2,3,4,5,6,7,8,9,10))
+ggplot(HR, aes(MonthlyIncome_new,fill =(Attrition))) + geom_bar()
+```
+
+1. From the graph we can interpret that in x-axis, 1 refers to the lowest salary band and 10 refers to the highest salary              band. 
+2. The number of attrition rate is maximum in the low salary range and is decreasing with the increase in salary.
+3  There is absolutely no attrition in the range of 8 and 9 band in x-axis.So with high salary no attrition.
+
+### Overtime
+```{r}
+prop.table(table(HR$OverTime))
+```
+
+```{r}
+table(HR$OverTime, HR$Attrition)
+```
+
+```{r}
+ggplot(HR, aes(OverTime,fill =(Attrition))) + geom_bar()
+```
+1. From the above plot, we can interpret that employees who are working OVERTIME are leaving the jobs more rather than the             employees who are not working overtime.
+
+2. In Total 28% of the employees are working overtime. The percentage of attrition rate amongst the employees working                  overtime is close to 44% vs 11% for the employees who are not working overtime. 
+
+### Total Working Years
+```{r}
+summary(HR$TotalWorkingYears)
+```
+
+```{r}
+TotalWorkingYears_new=cut(HR$TotalWorkingYears, 10, include.lowest = TRUE)
+ggplot(HR, aes(TotalWorkingYears_new,fill =(Attrition))) + geom_bar()
+```
+
+1. The maximum rate of attrition is seen when the years of experience is 4. Also we can interpret from the graph that till 8           years of experience the attrition rate is higher.
+
+2. The rate of attrition decreases with the increase in working years experience. When the employees spent about 8-12 years in         the company, the attrition rate decreases.
+
+
+### Dummies conversion of the data of independant variables
+```{r}
+#install.packages("dummies")
+library(dummies)
+
+HR1 <- dummy.data.frame(HR[,-2])
+
+head(HR1)
+
+names(HR1)
+
+summary(HR1)
+
+```
+
+### Scaling of the data of the independant variables
+```{r}
+#install.packages("scales")
+library(scales)
+
+HR_S <- scale(HR1)
+HR_S = as.data.frame(HR_S)
+
+names(HR_S)
+```
+
+All the features are now in similar range
+
+### Combining the dependant and indepandant variables of the dataset
+```{r}
+Attrition = HR$Attrition
+HRNew <- cbind(Attrition, HR_S)
+```
+
+Creating new dataset by combining the scale data and the original lables
+
+### View the column names of  the dataset
+```{r}
+names(HRNew)
+```
+
+### Renaming the required column names 
+```{r}
+
+names(HRNew)[names(HRNew) == "BusinessTravelNon-Travel"] <- "BusinessTravelNon_Travel"
+names(HRNew)[names(HRNew) == "DepartmentHuman Resources"] <- "DepartmentHumanResources"
+names(HRNew)[names(HRNew) == "DepartmentResearch & Development"] <- "DepartmentResearchDevelopment"
+names(HRNew)[names(HRNew) == "EducationFieldHuman Resources"] <- "EducationFieldHumanResources"
+names(HRNew)[names(HRNew) == "EducationFieldLife Sciences"] <- "EducationFieldLifeSciences"
+names(HRNew)[names(HRNew) == "EducationFieldTechnical Degree"] <- "EducationFieldTechnicalDegree"
+names(HRNew)[names(HRNew) == "JobRoleHealthcare Representative"] <- "JobRoleHealthcareRepresentative"
+names(HRNew)[names(HRNew) == "JobRoleHuman Resources"] <- "JobRoleHumanResources"
+names(HRNew)[names(HRNew) == "JobRoleLaboratory Technician"] <- "JobRoleLaboratoryTechnician"
+names(HRNew)[names(HRNew) == "JobRoleManufacturing Director"] <- "JobRoleManufacturingDirector"
+names(HRNew)[names(HRNew) == "JobRoleResearch Director"] <- "JobRoleResearchDirector"
+names(HRNew)[names(HRNew) == "JobRoleResearch Scientist"] <- "JobRoleResearchScientist"
+names(HRNew)[names(HRNew) == "JobRoleSales Executive"] <- "JobRoleSalesExecutive"
+names(HRNew)[names(HRNew) == "JobRoleSales Representative"] <- "JobRoleSalesRepresentative"
+
+names(HRNew)
+```
+
+## DATA SPLIT
+
+### Split the data - create Training and Testing Sets.
+```{r}
+library(caTools)
+
+set.seed(143)
+## split into training and test sets
+split = sample.split(HRNew$Attrition, SplitRatio = 0.7)
+
+# Create train and test set
+traindata_dt = subset(HRNew, split == TRUE)
+testdata_dt = subset(HRNew, split == FALSE)
+
+# Proportion of Table
+prop.table(table(traindata_dt$Attrition))
+prop.table(table(testdata_dt$Attrition))
+
+```
+
+## CART MODEL
+
+### Loading Required libraries for Cart
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+
+```
+
+### Build the CART model: Fully grown Decision tree 
+```{r}
+set.seed(123)
+
+tree_full = rpart(formula = Attrition ~., data = traindata_dt)
+rpart.plot(tree_full, cex=0.8)
+
+
+
+boxcols <- c("palegreen3", "pink")[tree_full$frame$yval]
+par(xpd=TRUE)
+prp(tree_full, faclen = 0, cex = 0.6, extra = 1, box.col = boxcols)
+
+```
+
+
+### Build the confusion matrix and Predict on train data using CART Decision tree model
+```{r}
+## Predict using the CART model
+traindata_dt$predict.class=predict(tree_full,traindata_dt,type="class")
+traindata_dt$predict.score=predict(tree_full,traindata_dt)
+
+## Creating the confusion matrix
+tabtrain=with(traindata_dt,table(Attrition,predict.class))
+tabtrain
+
+TN_train = tabtrain[1,1]
+TP_train = tabtrain[2,2]
+FN_train = tabtrain[2,1]
+FP_train = tabtrain[1,2]
+
+# Accuracy
+train_acc_dt = (TN_train+TP_train)/(TN_train+TP_train+FN_train+FP_train)
+train_acc_dt
+
+#Sensivity
+train_sens_dt = TP_train/(TP_train+FN_train)
+train_sens_dt
+
+#Specificity
+train_spec_dt = TN_train/(TN_train+FP_train)
+train_spec_dt
+```
+
+### Build the confusion matrix and Predict on test data using CART Decision tree model
+```{r}
+## Predict using the CART model
+testdata_dt$predict.class=predict(tree_full,testdata_dt,type="class")
+testdata_dt$predict.score=predict(tree_full,testdata_dt)
+
+## Creating the confusion matrix
+tabtest=with(testdata_dt,table(Attrition,predict.class))
+tabtest
+
+TN_test = tabtest[1,1]
+TP_test = tabtest[2,2]
+FN_test = tabtest[2,1]
+FP_test = tabtest[1,2]
+
+#Accuracy
+test_acc_dt = (TN_test+TP_test)/(TN_test+TP_test+FN_test+FP_test)
+test_acc_dt
+
+#Sensivity
+test_sens_dt = TP_test/(TP_test+FN_test)
+test_sens_dt
+
+#Specificity
+test_spec_dt = TN_test/(TN_test+FP_test)
+test_spec_dt
+```
+
+### Remove predicted score and class before running other models
+```{r}
+traindata_dt$predict.class = NULL
+traindata_dt$predict.score = NULL
+testdata_dt$predict.class = NULL
+testdata_dt$predict.score = NULL
+```
+
+### Pruning using minbucket and minsplit
+```{r}
+set.seed(777)
+
+tree=rpart(formula = Attrition ~ ., data = traindata_dt, method="class",control = rpart.control(minsplit = 45,  minbucket = 15, cp = 0.0001))
+
+
+rpart.plot(tree, cex=0.8)
+```
+
+### Prune using cp
+```{r}
+printcp(tree)
+plotcp(tree)
+
+bestcp=tree$cptable[which.min(tree$cptable[,"xerror"]),"CP"]
+bestcp
+
+print(tree$cptable)
+plot(tree$cptable)
+
+ptree=prune(tree,cp=bestcp)
+print(ptree)
+rpart.plot(ptree, cex = 0.8)
+```
+
+### Prediction on Train data using the pruned decision tree
+```{r}
+## Predict using the CART model
+traindata_dt$predict.class=predict(ptree,traindata_dt,type="class")
+traindata_dt$predict.score=predict(ptree,traindata_dt)
+
+## Creating the confusion matrix
+tabtrain=with(traindata_dt,table(Attrition,predict.class))
+tabtrain
+
+TN_train = tabtrain[1,1]
+TP_train = tabtrain[2,2]
+FN_train = tabtrain[2,1]
+FP_train = tabtrain[1,2]
+
+#Accuracy
+train_acc_dt_prune = (TN_train+TP_train)/(TN_train+TP_train+FN_train+FP_train)
+train_acc_dt_prune
+
+#Sensivity
+train_sens_dt_prune = TP_train/(TP_train+FN_train)
+train_sens_dt_prune
+
+#Specificity
+train_spec_dt_prune = TN_train/(TN_train+FP_train)
+train_spec_dt_prune
+```
+
+### Prediction on Test data using the pruned decision tree
+```{r}
+## Predict using the CART model
+testdata_dt$predict.class=predict(ptree,testdata_dt,type="class")
+testdata_dt$predict.score=predict(ptree,testdata_dt)
+
+## Creating the confusion matrix
+tabtest=with(testdata_dt,table(Attrition,predict.class))
+tabtest
+
+TN_test = tabtest[1,1]
+TP_test = tabtest[2,2]
+FN_test = tabtest[2,1]
+FP_test = tabtest[1,2]
+
+test_acc_dt_prune = (TN_test+TP_test)/(TN_test+TP_test+FN_test+FP_test)
+test_acc_dt_prune
+
+test_sens_dt_prune = TP_test/(TP_test+FN_test)
+test_sens_dt_prune
+
+
+test_spec_dt_prune = TN_test/(TN_test+FP_test)
+test_spec_dt_prune
+```
+
+###  Variable importance of pruned tree
+```{r}
+
+library(caret)
+
+
+df_cart=data.frame(round(ptree$variable.importance,2))
+df_cart
+
+```
+
+## AUC-ROC Curve for pruned decision tree
+```{r}
+library(pROC)
+#Train data
+
+roc_obj_train_dt_prune = roc(traindata_dt$Attrition, traindata_dt$predict.score[,2])
+plot(roc_obj_train_dt_prune, print.auc = T)
+
+
+#Test data
+
+roc_obj_test_dt_prune = roc(testdata_dt$Attrition, testdata_dt$predict.score[,2])
+plot(roc_obj_test_dt_prune, print.auc = T)
+
+```
+
+### Comparison of all the performace measure of pruned decision tree model 
+```{r}
+results_train_dt_prune = data.frame(train_acc_dt_prune, train_sens_dt_prune, train_spec_dt_prune , as.numeric(roc_obj_train_dt_prune$auc))
+names(results_train_dt_prune) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC" )
+results_test_dt_prune = data.frame(test_acc_dt_prune, test_sens_dt_prune, test_spec_dt_prune ,as.numeric(roc_obj_test_dt_prune$auc) )
+names(results_test_dt_prune) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC")
+
+
+df_fin =rbind(results_train_dt_prune, results_test_dt_prune)
+row.names(df_fin) = c('dtree_prune_train', 'dtree_prune_test')
+df_fin
+```
+
+## RANDOM FOREST MODEL
+
+### Split the data into train and test for Random Forest
+```{r}
+# Create train and test set
+traindata_rf = subset(HRNew, split == TRUE)
+testdata_rf = subset(HRNew, split == FALSE)
+
+prop.table(table(traindata_rf$Attrition))
+prop.table(table(testdata_rf$Attrition))
+```
+
+### Check if distribution of partition data is correct in Train & Test dataset
+```{r}
+round(prop.table(table(traindata_rf$Attrition)),2)
+round(prop.table(table(testdata_rf$Attrition)),2)
+```
+
+### Configure parallel processing
+```{r}
+library(parallel)
+#install.packages("doParallel")
+library(doParallel)
+
+cluster <- makeCluster(detectCores() - 1)   # convention to level 1 core for OS
+registerDoParallel(cluster)
+
+cluster
+```
+
+### Check column names of train data
+```{r}
+names(traindata_rf)
+```
+
+### Matrix notation faster than y ~ .  - so convert to matrix
+```{r}
+x <- traindata_rf[,c(2:79)]
+y <- traindata_rf$Attrition
+```
+
+
+```{r}
+xvar_count <- dim(testdata_rf)[2]
+xvar_count
+
+sqrt(xvar_count)
+```
+
+### Build the Random Forest Model
+```{r}
+library(lattice)
+library(caret)
+
+
+seed=123
+metric="Accuracy"
+
+xvar_count <- dim(testdata_rf)[2]
+xvar_count
+
+sqrt(xvar_count)
+
+control <- trainControl(search = "grid" , allowParallel = T , verboseIter = T)
+set.seed(seed)
+
+tunegrid <- expand.grid(.mtry=c(7,8,9,10,11))
+
+
+ system.time(rf_gridsearch <- train(x,y,data = traindata_rf , method = "rf" , metric = metric ,
+                                    tuneGrid = tunegrid , trControl = control , ntree=50 , verbose=T))
+ 
+ 
+ print(rf_gridsearch)
+ 
+ plot(rf_gridsearch,metric="Accuracy")
+ plot(rf_gridsearch,metric="Kappa")
+```
+
+### Change the cutoff (mtry) and build the RF model using randomForest package
+```{r}
+library(randomForest)
+RF <- randomForest(Attrition ~ . , data = traindata_rf ,
+                    ntree = 200 , mtry = 8, importance = TRUE, cutoff=c(0.8,0.2))
+
+RF
+```
+
+### De-register parallel processing cluster
+```{r}
+stopCluster(cluster)
+```
+
+
+```{r}
+plot(RF, main="")
+legend("topright", c("OOB", "0", "1"), text.col=1:6, lty=1:3, col=1:3)
+title(main="Error Rates Random Forest")
+```
+
+
+### Variable Importance of the RF Model
+```{r}
+varImpPlot(RF)
+```
+
+### Predict on train data using RF model and doing the performance measure
+```{r}
+## Predict using the RF model
+## Class and score prediction
+traindata_rf$predict.class=predict(RF,traindata_rf,type="class")
+traindata_rf$predict.score=predict(RF,traindata_rf)
+
+
+## Creating the confusion matrix
+tabtrain=with(traindata_rf,table(Attrition,predict.class))
+tabtrain
+
+TN_train = tabtrain[1,1]
+TP_train = tabtrain[2,2]
+FN_train = tabtrain[2,1]
+FP_train = tabtrain[1,2]
+
+train_acc_rf = (TN_train+TP_train)/(TN_train+TP_train+FN_train+FP_train)
+train_acc_rf
+
+train_sens_rf = TP_train/(TP_train+FN_train)
+train_sens_rf
+
+
+train_spec_rf = TN_train/(TN_train+FP_train)
+train_spec_rf
+```
+
+### Predict on test data using RF model and doing the performance measure
+```{r}
+## Predict using the RF model
+testdata_rf$predict.class=predict(RF,testdata_rf,type="class")
+testdata_rf$predict.score=predict(RF,testdata_rf)
+
+## Creating the confusion matrix
+tabtest=with(testdata_rf,table(Attrition,predict.class))
+tabtest
+
+TN_test = tabtest[1,1]
+TP_test = tabtest[2,2]
+FN_test = tabtest[2,1]
+FP_test = tabtest[1,2]
+
+test_acc_rf = (TN_test+TP_test)/(TN_test+TP_test+FN_test+FP_test)
+test_acc_rf
+
+test_sens_rf = TP_test/(TP_test+FN_test)
+test_sens_rf
+
+
+test_spec_rf = TN_test/(TN_test+FP_test)
+test_spec_rf
+```
+
+### Plotting the ROC_AUC Curve for train and test data
+```{r}
+library(pROC)
+# Train Data
+traindata_rf$predict.score=predict(RF,traindata_rf, type = "prob")
+roc_obj_train_rf = roc(traindata_rf$Attrition, traindata_rf$predict.score[,2])
+plot(roc_obj_train_rf, print.auc = T)
+
+# Test Data
+testdata_rf$predict.score=predict(RF,testdata_rf, type = "prob")
+roc_obj_test_rf = roc(testdata_rf$Attrition, testdata_rf$predict.score[,2])
+plot(roc_obj_test_rf, print.auc = T)
+```
+
+### Comparison of all the performace measure of Random Forest model  
+```{r}
+results_train_rf = data.frame(train_acc_rf, train_sens_rf, train_spec_rf , as.numeric(roc_obj_train_rf$auc))
+names(results_train_rf) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC" )
+results_test_rf = data.frame(test_acc_rf, test_sens_rf, test_spec_rf ,as.numeric(roc_obj_test_rf$auc) )
+names(results_test_rf) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC")
+
+
+df_fin =rbind(results_train_rf, results_test_rf)
+row.names(df_fin) = c('RF_Train', 'RF_Test')
+df_fin
+```
+
+## NEURAL NETWORK
+
+### Split the data - create Train and Test Sets for Neural Network
+```{r}
+# Create train and test set
+traindata_nn = subset(HRNew, split == TRUE)
+testdata_nn = subset(HRNew, split == FALSE)
+
+#Proportion table of train n test set
+prop.table(table(traindata_nn$Attrition))
+prop.table(table(testdata_nn$Attrition))
+```
+
+
+
+### Build the formula  for NN
+```{r}
+n <- names(traindata_nn)
+f <- as.formula(paste("Attrition ~", paste(n[!n %in% "Attrition"], collapse = " + ")))
+```
+
+### Verify the formula created above
+```{r}
+f
+```
+
+### Build the Neural Network Model using neuralnet package. 
+```{r}
+library(neuralnet)
+nn1 =neuralnet(formula=f,data=traindata_nn,hidden=10, threshold=0.1,lifesign = "full")
+plot(nn1, cex=0.6, lwd=0.1)
+
+```
+
+
+### Building Neural Network model with some more parameters
+```{r}
+nn2 <- neuralnet(formula = f,
+                 data = traindata_nn, 
+                 hidden = c(3,3),
+                 linear.output = FALSE,
+                 lifesign = "full",
+                 lifesign.step = 1,
+                 threshold = 0.7,
+                 stepmax = 2000
+)
+
+plot(nn2, cex=0.6)
+```
+
+### View probablity of the target variables of the train dataset
+```{r}
+nn2$net.result
+```
+
+### Printing the probability of "NO" i.e. employess who will not Attrite , which is in the 2nd column of nn2$net.result
+```{r}
+nn2$net.result[[1]][,2]
+```
+
+### Assigning the Probabilities to the target variable of Train Sample
+```{r}
+traindata_nn$Prob <- nn2$net.result[[1]][,2]
+
+head(traindata_nn$Prob,10)
+```
+
+### The distribution of the estimated probabilities of the target variable
+```{r}
+hist(traindata_nn$Prob, breaks=20)
+```
+
+### Creating confusion matrix and doing the performance measure on train data
+```{r}
+#Assgining 0 / 1 class based on certain threshold
+traindata_nn$Class = ifelse(traindata_nn$Prob>0.20,"Yes","No")
+tabtrain = with(traindata_nn, table(Attrition, as.factor(Class)))
+tabtrain
+
+TN_train = tabtrain[1,1]
+TN_train
+
+TP_train = tabtrain[2,2]
+TP_train
+
+FN_train = tabtrain[2,1]
+FN_train
+
+FP_train = tabtrain[1,2]
+FP_train
+
+#ACCURACY
+train_acc_nn = (TN_train+TP_train)/(TN_train+TP_train+FN_train+FP_train)
+train_acc_nn
+
+#SENSIVITY
+train_sens_nn = TP_train/(TP_train+FN_train)
+train_sens_nn
+
+#SPECIFICITY
+train_spec_nn = TN_train/(TN_train+FP_train)
+train_spec_nn
+```
+
+### Predict for Test Data and Creating Confusion Matrix and doing the performance measure on test data
+```{r}
+
+compute_test = compute(nn2, testdata_nn[,2:79])
+
+testdata_nn$Prob <- compute_test$net.result[,2]
+
+testdata_nn$Class = ifelse(testdata_nn$Prob>0.20,"Yes","No")
+tabtest = with( testdata_nn, table(Attrition, as.factor(Class)))
+tabtest
+
+TN_test = tabtest[1,1]
+TN_test
+
+
+TP_test = tabtest[2,2]
+TP_test
+
+FN_test = tabtest[2,1]
+FN_test
+
+FP_test = tabtest[1,2]
+FP_test
+
+#ACCURACY
+test_acc_nn = (TN_test+TP_test)/(TN_test+TP_test+FN_test+FP_test)
+test_acc_nn
+
+#SENSIVITY
+test_sens_nn = TP_test/(TP_test+FN_test)
+test_sens_nn
+
+#SPECIFICITY
+test_spec_nn = TN_test/(TN_test+FP_test)
+test_spec_nn
+```
+
+Compute function is to predict in neural network and it only accepts the x variables of test data
+
+### Drawing the AUC-ROC Curve for train and test data for NN model
+```{r}
+library(pROC)
+
+#Train data
+
+roc_obj_train_nn = roc(traindata_nn$Attrition, traindata_nn$Prob)
+plot(roc_obj_train_nn, print.auc = T)
+
+#Test data
+
+roc_obj_test_nn = roc(testdata_nn$Attrition, testdata_nn$Prob)
+plot(roc_obj_test_nn, print.auc = T)
+
+
+```
+
+### Comparison of all the performace measure of Neural Network model  
+```{r}
+results_train_nn = data.frame(train_acc_nn, train_sens_nn, train_spec_nn , as.numeric(roc_obj_train_nn$auc))
+names(results_train_nn) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC" )
+results_test_nn = data.frame(test_acc_nn, test_sens_nn, test_spec_nn ,as.numeric(roc_obj_test_nn$auc) )
+names(results_test_nn) = c("ACCURACY", "SENSITIVITY", "SPECIFICITY" , "AUC-ROC")
+
+
+df_fin =rbind(results_train_nn, results_test_nn)
+row.names(df_fin) = c('nn_train', 'nn_test')
+df_fin
+```
+
+## Comparing all the 3 model with their performance - Decision Tress, Random Forest and Neural Network with respect to Accuracy , Sensitivity, Specificity and AUC-ROC Curve
+```{r}
+
+df_fin =rbind(results_train_dt_prune, results_test_dt_prune, results_train_rf,results_test_rf,results_train_nn,results_test_nn)
+row.names(df_fin) = c('DecisionTree_train', 'DecisionTree_test','RandomForest_train','RandomForest_test',
+                      'NeuralNetwork_train','NeuralNetwork_test')
+#round(df_fin,2)
+
+#install.packages("kableExtra")
+library(kableExtra)
+print("Model Performance Comparison Metrics ")
+kable(round(df_fin,2)) %>%
+    kable_styling(c("striped","bordered"))
+
+```
+
+### Comparing all the 3 model with their performance - Decision Tress, Random Forest and Neural Network with respect to AUC-ROC Curve
+```{r}
+plot(roc_obj_test_dt_prune, main = "ROC curves for all the models", col='blue')
+plot(roc_obj_test_rf,add=TRUE, col='red')
+plot(roc_obj_test_nn, add=TRUE, col='green3')
+legend('bottom', c("Decision Tree", "Random Forest" , "Neural Network"), fill = c('blue','red','green3'), bty='n')
+```
+
+
+
+## CONCLUSION:
+
+
+
+### Hypothesis 1 - 
+
+Null Hypothesis: Ho: Employee attrition (dependent variable) is not affected by any of the independant variables 
+
+Alternative Hypothesis: Ha: Employee attrition (dependent variable) is affected by the independant variables
+
+### Validation -
+
+As per the variable importance from the models we could see that independent variables like Overtime, Monthly Income, total working years ,job role , hourly rate , daily rate , age are the important factors contributing towards employee attrition.
+
+
+### Hypothesis 2 -
+
+Null Hypothesis: Ho: Ensembling of models doesn't improves model performance
+
+Alternative Hypothesis: Ha: Ensembling of models improves model performance
+
+### Validation -
+
+We conclude from the model performance comparison table that accuracy and sensitivity is improving across models on both train and test data.
+
+
+```{r}
+library(kableExtra)
+
+kable(round(df_fin,2)) %>%
+    kable_styling(c("striped","bordered"))
+#add_header_above(c(" ", "Model Performance " = 2, "Comparison Metrics" = 2))
+```
+
+
+### Inference from the Model Performance Comparison Metrics.
+
+As per the performce metrics we could see that Neural Network is a better model compared to other models.
+Reasons as below -
+
+1.As accuracy and sensitivity have improved upon the other models.
+
+2.There seems to be less overfitting compared to other models.
+
+
+
+### Drawback 
+
+Only drawback we have is that we could not derive importance of any variables since it is a complete blackbox model.
+
+
+
+
+
+
+
+
+
+
